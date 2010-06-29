@@ -1,0 +1,9 @@
+= README =
+
+This is a fork of django-audit-log, which gives you the ability to record changes of model instance of your django project.
+
+django-audit-log is orginally written by vvangelovski, hosting on Google Code:
+http://code.google.com/p/django-audit-log/
+
+For detail information, please refer to http://code.google.com/p/django-audit-log/wiki/UsageInstructions
+
