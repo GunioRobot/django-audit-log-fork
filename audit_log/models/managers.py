@@ -28,7 +28,17 @@ class AuditLogManager(models.Manager):
         
         f = {self.instance._meta.pk.name : self.instance.pk}
         return super(AuditLogManager, self).get_query_set().filter(**f)
-    
+   
+    def get_diff(self):
+        '''Output the differences between LogEntries.'''
+
+        if self.instance is None:
+            LogEntry_list = super(AuditLogManager, self).get_query_set()
+        else:
+            f = {self.instance._meta.pk.name : self.instance.pk}
+            LogEntry_list = super(AuditLogManager, self).get_query_set().filter(**f)
+        
+        return "diff:%s" % len(LogEntry_list)
             
 class AuditLogDescriptor(object):
     def __init__(self, model, manager_class):
