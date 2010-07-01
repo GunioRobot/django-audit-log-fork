@@ -39,38 +39,51 @@ class AuditLogManager(models.Manager):
         else:
             f = {self.instance._meta.pk.name : self.instance.pk}
             LogEntry_list = super(AuditLogManager, self).get_query_set().filter(**f)
-      
-        model1 = LogEntry_list[0].object_state
-        model2 = LogEntry_list[1].object_state
+        
+        diff_result = []
 
-        changes = {}
-        changes_header = {}
-        excludes = ['edittime'] #should have a _meta.do_not_show_diff_field or something.
-   
-        changes_header['Modified'] = str(LogEntry_list[0].action_date)
-        changes_header['User'] = str(LogEntry_list[0].action_user)
-        changes_header['Type'] = str(LogEntry_list[0].action_type)
+        for logentry_id in range(0,len(LogEntry_list)):
+            
+            logentry1 = LogEntry_list[logentry_id]
+            try:
+                logentry2 = LogEntry_list[logentry_id+1]
+            except:
+                #There is no according record LogEntry to diff
+                continue
 
-        if changes_header['Type'].lower() == 'u': #if Changed
+            model1 = logentry1.object_state
+            model2 = logentry2.object_state
 
-            field_joint  = model1._meta.fields + model1._meta.local_many_to_many
+            changes_header = {}
+            changes_header['Modified'] = str(logentry1.action_date)
+            changes_header['User'] = str(logentry1.action_user)
+            changes_header['Type'] = str(logentry1.action_type)
 
-            for field in field_joint:
-                if not field.name in excludes:
-                    if field.value_from_object(model1) != field.value_from_object(model2) and \
-                       str(field.value_from_object(model1)) != str(field.value_from_object(model2)):
-                        try:
-                            changes[field.verbose_name] = (field.value_from_object(model2).encode("utf-8"), \
-                                                           field.value_from_object(model1).encode("utf-8"))
-                        except:
-                            changes[field.verbose_name] = (str(field.value_from_object(model2)), \
-                                                           str(field.value_from_object(model1)))
-        try:
-            context = ", ".join(map(lambda x:u"%(k)s:%(o)s->%(n)s" % {'k':x[0],'o':x[1][0],'n':x[1][1]}, changes.iteritems()))
-        except:
-            context = ", ".join(map(lambda x:u"%(k)s:%(o)s->%(n)s" % {'k':str(x[0]).decode("utf-8"),'o':str(x[1][0]).decode("utf-8"),'n':str(x[1][1]).decode("utf-8")}, changes.iteritems())) 
+            changes = {}
+            excludes = ['edittime'] #should have a _meta.do_not_show_diff_field or something.
 
-        return changes_header, context
+            if changes_header['Type'].lower() == 'u': #if Changed
+
+                field_joint  = model1._meta.fields + model1._meta.local_many_to_many
+
+                for field in field_joint:
+                    if not field.name in excludes:
+                        if field.value_from_object(model1) != field.value_from_object(model2) and \
+                           str(field.value_from_object(model1)) != str(field.value_from_object(model2)):
+                            try:
+                                changes[field.verbose_name] = (field.value_from_object(model2).encode("utf-8"), \
+                                                               field.value_from_object(model1).encode("utf-8"))
+                            except:
+                                changes[field.verbose_name] = (str(field.value_from_object(model2)), \
+                                                               str(field.value_from_object(model1)))
+            try:
+                context = ", ".join(map(lambda x:u"%(k)s:%(o)s->%(n)s" % {'k':x[0],'o':x[1][0],'n':x[1][1]}, changes.iteritems()))
+            except:
+                context = ", ".join(map(lambda x:u"%(k)s:%(o)s->%(n)s" % {'k':str(x[0]).decode("utf-8"),'o':str(x[1][0]).decode("utf-8"),'n':str(x[1][1]).decode("utf-8")}, changes.iteritems())) 
+
+            diff_result.append([changes_header, context])
+
+        return diff_result
             
 class AuditLogDescriptor(object):
     def __init__(self, model, manager_class):
