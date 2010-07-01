@@ -158,6 +158,7 @@ class AuditLog(object):
         """
         return {
             'ordering' : ('-action_date',),
+            'app_label' : model._meta.app_label,
         }
     
     def create_log_entry_model(self, model):
