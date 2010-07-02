@@ -147,33 +147,45 @@ class AuditLog(object):
         """
         fields = {'__module__' : model.__module__}
         
-        for field in model._meta.fields:
+        for field in model._meta.fields + model._meta.many_to_many:
             
             print "in copy_fields"
             print field #it seems we don't have m2m field here either!
 
             if not field.name in self._exclude:
-                
-                field  = copy.copy(field)
             
-                if isinstance(field, models.AutoField):
-                    #we replace the AutoField of the original model
-                    #with an IntegerField because a model can
-                    #have only one autofield.
+                if not isinstance(field, models.related.ManyToManyField):
+                    
+                    field  = copy.copy(field)
                 
-                    field.__class__ = models.IntegerField
-            
-                if field.primary_key or field.unique:
-                    #unique fields of the original model
-                    #can not be guaranteed to be unique
-                    #in the audit log entry but they
-                    #should still be indexed for faster lookups.
+                    if isinstance(field, models.AutoField):
+                        #we replace the AutoField of the original model
+                        #with an IntegerField because a model can
+                        #have only one autofield.
+                    
+                        field.__class__ = models.IntegerField
                 
-                    field.primary_key = False
-                    field._unique = False
-                    field.db_index = True
-            
-                fields[field.name] = field
+                    if field.primary_key or field.unique:
+                        #unique fields of the original model
+                        #can not be guaranteed to be unique
+                        #in the audit log entry but they
+                        #should still be indexed for faster lookups.
+                    
+                        field.primary_key = False
+                        field._unique = False
+                        field.db_index = True
+                
+                    fields[field.name] = field
+
+                else:
+                    #print field.value_to_string()
+                    #it processes only the model structure here, not the data
+                    #therefore you can not get the obj/data here
+
+                    #replaced M2M Field with TextField here
+                    field.__class__ = models.TextField
+                    fields[field.name] = field 
+
             
         return fields
     
