@@ -124,9 +124,12 @@ class AuditLog(object):
     def create_log_entry(self, instance, action_type):
         manager = getattr(instance, self.manager_name)
         attrs = {}
-        for field in instance._meta.fields:
+        for field in instance._meta.fields + instance._meta.many_to_many:
             if field.attname not in self._exclude:
-                attrs[field.attname] = getattr(instance, field.attname)
+                if not isinstance(f, models.related.ManyToManyField):
+                    attrs[field.attname] = getattr(instance, field.attname)
+                else:
+                    attrs[field.attname] = field.attname
                 print field.attname #Still don't have m2m fields here.
         manager.create(action_type = action_type, **attrs)
     
