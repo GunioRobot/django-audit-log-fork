@@ -43,7 +43,7 @@ class AuditLogManager(models.Manager):
         diff_result = []
 
         for logentry_id in range(0,len(LogEntry_list)):
-            
+            print logentry_id 
             logentry1 = LogEntry_list[logentry_id]
             try:
                 logentry2 = LogEntry_list[logentry_id+1]
@@ -53,7 +53,8 @@ class AuditLogManager(models.Manager):
 
             model1 = logentry1.object_state
             model2 = logentry2.object_state
-
+            print model1.monitor.all()
+            print model2.monitor.all()
             changes_header = {}
             changes_header['Modified'] = str(logentry1.action_date)
             changes_header['User'] = str(logentry1.action_user)
@@ -63,8 +64,9 @@ class AuditLogManager(models.Manager):
             excludes = ['edittime'] #should have a _meta.do_not_show_diff_field or something.
 
             if changes_header['Type'].lower() == 'u': #if Changed
-
-                field_joint  = model1._meta.fields + model1._meta.local_many_to_many
+                
+                #FIXME It seems that ManyToMany change logs still can not be tracked?
+                field_joint  = model1._meta.fields + model1._meta.many_to_many
 
                 for field in field_joint:
                     if not field.name in excludes:
@@ -76,6 +78,7 @@ class AuditLogManager(models.Manager):
                             except:
                                 changes[field.verbose_name] = (str(field.value_from_object(model2)), \
                                                                str(field.value_from_object(model1)))
+            #producing diff string text                    
             try:
                 context = ", ".join(map(lambda x:u"%(k)s:%(o)s->%(n)s" % {'k':x[0],'o':x[1][0],'n':x[1][1]}, changes.iteritems()))
             except:
