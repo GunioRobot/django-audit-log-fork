@@ -2,6 +2,7 @@
 
 import copy
 import datetime
+import hashlib
 from django.db import models
 from django.utils.functional import curry
 from django.utils.translation import ugettext_lazy as _
@@ -16,6 +17,7 @@ class LogEntryObjectDescriptor(object):
     
     def __get__(self, instance, owner):
         values = (getattr(instance, f.attname) for f in self.model._meta.fields)
+        print [f.attname for f in self.model._meta.fields] #DEBUG: it seems we don't have any m2m fields here.
         return self.model(*values)
 
 class AuditLogManager(models.Manager):
@@ -43,7 +45,6 @@ class AuditLogManager(models.Manager):
         diff_result = []
 
         for logentry_id in range(0,len(LogEntry_list)):
-            print logentry_id 
             logentry1 = LogEntry_list[logentry_id]
             try:
                 logentry2 = LogEntry_list[logentry_id+1]
@@ -53,8 +54,7 @@ class AuditLogManager(models.Manager):
 
             model1 = logentry1.object_state
             model2 = logentry2.object_state
-            print model1.monitor.all()
-            print model2.monitor.all()
+
             changes_header = {}
             changes_header['Modified'] = str(logentry1.action_date)
             changes_header['User'] = str(logentry1.action_user)
@@ -62,6 +62,8 @@ class AuditLogManager(models.Manager):
 
             changes = {}
             excludes = ['edittime'] #should have a _meta.do_not_show_diff_field or something.
+            #excludes = logentry1._exclude #programs terminates here.
+            #print logentry1._exclude
 
             if changes_header['Type'].lower() == 'u': #if Changed
                 
@@ -70,8 +72,8 @@ class AuditLogManager(models.Manager):
 
                 for field in field_joint:
                     if not field.name in excludes:
-                        if field.value_from_object(model1) != field.value_from_object(model2) and \
-                           str(field.value_from_object(model1)) != str(field.value_from_object(model2)):
+                        if field.value_from_object(model1) != field.value_from_object(model2): #and \
+                           #hashlib.md5(field.value_from_object(model1)).hexdigest() != hashlib.md5(field.value_from_object(model2)).hexdigest():
                             try:
                                 changes[field.verbose_name] = (field.value_from_object(model2).encode("utf-8"), \
                                                                field.value_from_object(model1).encode("utf-8"))
@@ -86,6 +88,7 @@ class AuditLogManager(models.Manager):
 
             diff_result.append([changes_header, context])
 
+        #return [states_changed_info, diff_string]
         return diff_result
             
 class AuditLogDescriptor(object):
@@ -116,6 +119,7 @@ class AuditLog(object):
         for field in instance._meta.fields:
             if field.attname not in self._exclude:
                 attrs[field.attname] = getattr(instance, field.attname)
+                print field.attname #Still don't have m2m fields here.
         manager.create(action_type = action_type, **attrs)
     
     def post_save(self, instance, created, **kwargs):
@@ -131,7 +135,7 @@ class AuditLog(object):
         
         models.signals.post_save.connect(self.post_save, sender = sender, weak = False)
         models.signals.post_delete.connect(self.post_delete, sender = sender, weak = False)
-        
+        # set the manager 
         descriptor = AuditLogDescriptor(log_entry_model, self.manager_class)
         setattr(sender, self.manager_name, descriptor)
     
@@ -145,6 +149,9 @@ class AuditLog(object):
         
         for field in model._meta.fields:
             
+            print "in copy_fields"
+            print field #it seems we don't have m2m field here either!
+
             if not field.name in self._exclude:
                 
                 field  = copy.copy(field)
@@ -229,5 +236,6 @@ class AuditLog(object):
         attrs.update(self.get_logging_fields(model))
         attrs.update(Meta = type('Meta', (), self.get_meta_options(model)))
         name = '%sAuditLogEntry'%model._meta.object_name
+        print attrs  #it seems there is not m2m fields either!
         return type(name, (models.Model,), attrs)
         
