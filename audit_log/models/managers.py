@@ -16,8 +16,16 @@ class LogEntryObjectDescriptor(object):
         self.model = model
     
     def __get__(self, instance, owner):
-        values = (getattr(instance, f.attname) for f in self.model._meta.fields)
-        print [f.attname for f in self.model._meta.fields] #DEBUG: it seems we don't have any m2m fields here.
+        #values = (getattr(instance, f.attname) for f in self.model._meta.fields)
+        #print [f.attname for f in self.model._meta.fields] #DEBUG: it seems we don't have any m2m fields here.
+
+        for f in self.model._meta.fields + self.model._meta.many_to_many:
+            if not isinstance(f, models.related.ManyToManyField):
+                values.append(getattr(instance, f.attname))
+            else:
+                #M2M
+                values.append(f.attname) #a mockup
+
         return self.model(*values)
 
 class AuditLogManager(models.Manager):
