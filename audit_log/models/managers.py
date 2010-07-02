@@ -13,8 +13,14 @@ from audit_log.models.fields import LastUserField
 
 class LogEntryObjectDescriptor(object):
     def __init__(self, model):
+        for field in model._meta.fields + model._meta.many_to_many:
+            print field
+            if isinstance(field, models.related.ManyToManyField):
+                field.__class__ = models.TextField
+                #mockup for m2m
+                
         self.model = model
-    
+
     def __get__(self, instance, owner):
         #values = (getattr(instance, f.attname) for f in self.model._meta.fields)
         #print [f.attname for f in self.model._meta.fields] #DEBUG: it seems we don't have any m2m fields here.
@@ -126,7 +132,7 @@ class AuditLog(object):
         attrs = {}
         for field in instance._meta.fields + instance._meta.many_to_many:
             if field.attname not in self._exclude:
-                if not isinstance(f, models.related.ManyToManyField):
+                if not isinstance(field, models.related.ManyToManyField):
                     attrs[field.attname] = getattr(instance, field.attname)
                 else:
                     attrs[field.attname] = field.attname
@@ -160,8 +166,8 @@ class AuditLog(object):
         
         for field in model._meta.fields + model._meta.many_to_many:
             
-            print "in copy_fields"
-            print field #it seems we don't have m2m field here either!
+            #print "in copy_fields"
+            #print field #it seems we don't have m2m field here either!
 
             if not field.name in self._exclude:
             
@@ -195,6 +201,8 @@ class AuditLog(object):
 
                     #replaced M2M Field with TextField here
                     field.__class__ = models.TextField
+                    #print dir(field)
+                    #print field
                     fields[field.name] = field 
 
             
@@ -260,5 +268,6 @@ class AuditLog(object):
         attrs.update(Meta = type('Meta', (), self.get_meta_options(model)))
         name = '%sAuditLogEntry'%model._meta.object_name
         print attrs  #it seems there is not m2m fields either!
+        print models.Model
         return type(name, (models.Model,), attrs)
         
