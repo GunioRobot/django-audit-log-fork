@@ -11,14 +11,22 @@ from audit_log.models.fields import LastUserField
 
 class LogEntryObjectDescriptor(object):
     def __init__(self, model):
-        for field in model._meta.fields + model._meta.many_to_many:
-            #print field 
+        model._meta.local_many_to_many = []
+        '''
+        for field in model._meta.fields:# + model._meta.many_to_many:
+            print field 
             #when these m2m field gets in here, it's already TextField.
-            #if isinstance(field, models.related.ManyToManyField):
-            #    field.__class__ = models.TextField
+            if isinstance(field, models.related.ManyToManyField):
+                field.__class__ = models.TextField
             #    #mockup for m2m
             pass
-                
+        
+        for field in model._meta.many_to_many:
+            if isinstance(field, models.TextField):
+                field.__class__ = models.related.ManyToManyField
+        
+        '''
+
         self.model = model
 
     def __get__(self, instance, owner):
@@ -164,7 +172,8 @@ class AuditLog(object):
         dictionary mapping field name to a copied field object.
         """
         fields = {'__module__' : model.__module__}
-        
+        recover_m2m_fields = model._meta.local_many_to_many
+        print recover_m2m_fields 
         for field in model._meta.fields + model._meta.many_to_many:
             
             #print "in copy_fields"
@@ -200,10 +209,11 @@ class AuditLog(object):
                     #it processes only the model structure here, not the data
                     #therefore you can not get the obj/data here
 
+                    field  = copy.copy(field)
                     #replaced M2M Field with TextField here
                     field.__class__ = models.TextField
 
-                    model._meta.many_to_many.remove(field)
+                    #model._meta.many_to_many.remove(field)
                     model._meta.local_many_to_many.remove(field)
                     field.rel = None
                     #print model._meta.many_to_many
@@ -217,7 +227,9 @@ class AuditLog(object):
                     fields[field.name] = field 
 
             
-        return fields
+        model._meta.local_many_to_many = recover_m2m_fields
+        print model._meta.many_to_many
+        return fields, recover_m2m_fields
     
 
     
@@ -274,12 +286,11 @@ class AuditLog(object):
         the model provided.
         """
         
-        attrs = self.copy_fields(model)
+        attrs, recover_m2m_fields = self.copy_fields(model)
         attrs.update(self.get_logging_fields(model))
         attrs.update(Meta = type('Meta', (), self.get_meta_options(model)))
         name = '%sAuditLogEntry'%model._meta.object_name
         #print attrs  #it seems there is not m2m fields either!
-        #print models.Model
         
         return type(name, (models.Model,), attrs)
         
