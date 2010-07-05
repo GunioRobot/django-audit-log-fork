@@ -173,10 +173,7 @@ class AuditLog(object):
         """
         fields = {'__module__' : model.__module__}
 
-        recover_m2m_fields = model._meta.local_many_to_many
-        #print recover_m2m_fields 
-
-        for field in model._meta.fields + model._meta.many_to_many:
+        for field in model._meta.fields + model._meta.local_many_to_many:
             
             #print "in copy_fields"
             #print field #it seems we don't have m2m field here either!
@@ -238,9 +235,6 @@ class AuditLog(object):
                     #print field
                     fields[field2.name] = field2
 
-
-
-        model._meta.local_many_to_many = recover_m2m_fields
         #print model._meta.many_to_many
         #del Tag._meta._all_related_many_to_many_objects
 
