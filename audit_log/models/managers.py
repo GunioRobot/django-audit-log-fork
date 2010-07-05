@@ -7,17 +7,16 @@ from django.db import models
 from django.utils.functional import curry
 from django.utils.translation import ugettext_lazy as _
 
-
-
 from audit_log.models.fields import LastUserField
 
 class LogEntryObjectDescriptor(object):
     def __init__(self, model):
         for field in model._meta.fields + model._meta.many_to_many:
-            print field
-            if isinstance(field, models.related.ManyToManyField):
-                field.__class__ = models.TextField
-                #mockup for m2m
+            print field #when these m2m field gets in here, it's already TextField.
+            #if isinstance(field, models.related.ManyToManyField):
+            #    field.__class__ = models.TextField
+            #    #mockup for m2m
+            pass
                 
         self.model = model
 
@@ -26,6 +25,7 @@ class LogEntryObjectDescriptor(object):
         #print [f.attname for f in self.model._meta.fields] #DEBUG: it seems we don't have any m2m fields here.
 
         for f in self.model._meta.fields + self.model._meta.many_to_many:
+            print "get_field_value in LogEntryObjectDescriptor:", f
             if not isinstance(f, models.related.ManyToManyField):
                 values.append(getattr(instance, f.attname))
             else:
@@ -39,6 +39,7 @@ class AuditLogManager(models.Manager):
         super(AuditLogManager, self).__init__()
         self.model = model
         self.instance = instance
+
     
     def get_query_set(self):
         if self.instance is None:
@@ -149,7 +150,6 @@ class AuditLog(object):
     
     def finalize(self, sender, **kwargs):
         log_entry_model = self.create_log_entry_model(sender)
-        
         models.signals.post_save.connect(self.post_save, sender = sender, weak = False)
         models.signals.post_delete.connect(self.post_delete, sender = sender, weak = False)
         # set the manager 
@@ -201,6 +201,31 @@ class AuditLog(object):
 
                     #replaced M2M Field with TextField here
                     field.__class__ = models.TextField
+                    model._meta.many_to_many.remove(field)
+                    model._meta.local_many_to_many.remove(field)
+                    print model._meta.many_to_many
+                    print model._meta.local_many_to_many
+                    #print models.get_models()
+                    class FakeRel(object):
+                        def _get_to(self):
+                            return models.get_models()[0]
+                        def is_hidden(self):
+                            return True
+                        def _get_multiple(self):
+                            return 0
+                        def _get_related_name(self):
+                            return 0
+                        def _get_field_name(self):
+                            return "name"
+                        to = property(_get_to)
+                        multiple = property(_get_multiple)
+                        related_name = property(_get_related_name)
+                        field_name = property(_get_field_name)
+
+                    #field.rel = FakeRel()
+                    field.rel = None
+                    print field.__dict__
+
                     #print dir(field)
                     #print field
                     fields[field.name] = field 
@@ -220,7 +245,7 @@ class AuditLog(object):
         def entry_instance_to_unicode(log_entry):
             try:
                 result = u'%s: %s %s at %s'%(model._meta.object_name, 
-                                                log_entry.object_state, 
+                                                "a", #log_entry.object_state, 
                                                 log_entry.get_action_type_display().lower(),
                                                 log_entry.action_date,
                                                 
@@ -242,7 +267,7 @@ class AuditLog(object):
                 ('U', _('Changed')),
                 ('D', _('Deleted')),
             )),
-            'object_state' : LogEntryObjectDescriptor(model),
+            'object_state' : "a", #LogEntryObjectDescriptor(model),
             '__unicode__' : entry_instance_to_unicode,
         }
             
@@ -267,7 +292,10 @@ class AuditLog(object):
         attrs.update(self.get_logging_fields(model))
         attrs.update(Meta = type('Meta', (), self.get_meta_options(model)))
         name = '%sAuditLogEntry'%model._meta.object_name
-        print attrs  #it seems there is not m2m fields either!
-        print models.Model
+        #print attrs  #it seems there is not m2m fields either!
+        #print models.Model
+        print name, attrs
+        #print type(name, (models.Model,), attrs)
+        
         return type(name, (models.Model,), attrs)
         
