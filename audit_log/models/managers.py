@@ -172,8 +172,10 @@ class AuditLog(object):
         dictionary mapping field name to a copied field object.
         """
         fields = {'__module__' : model.__module__}
+
         recover_m2m_fields = model._meta.local_many_to_many
-        print recover_m2m_fields 
+        #print recover_m2m_fields 
+
         for field in model._meta.fields + model._meta.many_to_many:
             
             #print "in copy_fields"
@@ -209,27 +211,42 @@ class AuditLog(object):
                     #it processes only the model structure here, not the data
                     #therefore you can not get the obj/data here
 
-                    field  = copy.copy(field)
+                    #field2  = copy.copy(field)
+                    #don't have to copy it. just created a new 
                     #replaced M2M Field with TextField here
-                    field.__class__ = models.TextField
+                    field2 = models.TextField(blank=True)
+                    field2.__class__ = models.TextField
+                    field2.attname = field.attname
+                    field2.name = field.name
 
+                    #don't copy made a relief to handle the M2M relations.
                     #model._meta.many_to_many.remove(field)
-                    model._meta.local_many_to_many.remove(field)
-                    field.rel = None
+                    #model._meta.local_many_to_many.remove(field2)
+                    #field2.rel = None
                     #print model._meta.many_to_many
                     #print model._meta.local_many_to_many
                     #You have to remove these changed M2M field from local_many_to_many.
                     #And make sure field.rel = None
                     #Otherwise manager.py will still validate them as M2M
 
-                    #print dir(field)
-                    #print field
-                    fields[field.name] = field 
+                    '''print dir(field)
+                    tp = ['m2m_column_name', 'm2m_db_table', 'm2m_field_name', 'm2m_reverse_field_name','m2m_reverse_name']
+                    for each in tp:
+                        print getattr(field, each)#[each]
+                        setattr(field,each,None)'''
 
-            
+                    #print field
+                    fields[field2.name] = field2
+
+
+
         model._meta.local_many_to_many = recover_m2m_fields
-        print model._meta.many_to_many
-        return fields, recover_m2m_fields
+        #print model._meta.many_to_many
+        #del Tag._meta._all_related_many_to_many_objects
+
+        #print dir(model._meta)
+        
+        return fields
     
 
     
@@ -286,7 +303,7 @@ class AuditLog(object):
         the model provided.
         """
         
-        attrs, recover_m2m_fields = self.copy_fields(model)
+        attrs = self.copy_fields(model)
         attrs.update(self.get_logging_fields(model))
         attrs.update(Meta = type('Meta', (), self.get_meta_options(model)))
         name = '%sAuditLogEntry'%model._meta.object_name
