@@ -12,7 +12,8 @@ from audit_log.models.fields import LastUserField
 class LogEntryObjectDescriptor(object):
     def __init__(self, model):
         for field in model._meta.fields + model._meta.many_to_many:
-            print field #when these m2m field gets in here, it's already TextField.
+            #print field 
+            #when these m2m field gets in here, it's already TextField.
             #if isinstance(field, models.related.ManyToManyField):
             #    field.__class__ = models.TextField
             #    #mockup for m2m
@@ -201,30 +202,15 @@ class AuditLog(object):
 
                     #replaced M2M Field with TextField here
                     field.__class__ = models.TextField
+
                     model._meta.many_to_many.remove(field)
                     model._meta.local_many_to_many.remove(field)
-                    print model._meta.many_to_many
-                    print model._meta.local_many_to_many
-                    #print models.get_models()
-                    class FakeRel(object):
-                        def _get_to(self):
-                            return models.get_models()[0]
-                        def is_hidden(self):
-                            return True
-                        def _get_multiple(self):
-                            return 0
-                        def _get_related_name(self):
-                            return 0
-                        def _get_field_name(self):
-                            return "name"
-                        to = property(_get_to)
-                        multiple = property(_get_multiple)
-                        related_name = property(_get_related_name)
-                        field_name = property(_get_field_name)
-
-                    #field.rel = FakeRel()
                     field.rel = None
-                    print field.__dict__
+                    #print model._meta.many_to_many
+                    #print model._meta.local_many_to_many
+                    #You have to remove these changed M2M field from local_many_to_many.
+                    #And make sure field.rel = None
+                    #Otherwise manager.py will still validate them as M2M
 
                     #print dir(field)
                     #print field
@@ -245,7 +231,7 @@ class AuditLog(object):
         def entry_instance_to_unicode(log_entry):
             try:
                 result = u'%s: %s %s at %s'%(model._meta.object_name, 
-                                                "a", #log_entry.object_state, 
+                                                log_entry.object_state, 
                                                 log_entry.get_action_type_display().lower(),
                                                 log_entry.action_date,
                                                 
@@ -267,7 +253,7 @@ class AuditLog(object):
                 ('U', _('Changed')),
                 ('D', _('Deleted')),
             )),
-            'object_state' : "a", #LogEntryObjectDescriptor(model),
+            'object_state' : LogEntryObjectDescriptor(model),
             '__unicode__' : entry_instance_to_unicode,
         }
             
@@ -294,8 +280,6 @@ class AuditLog(object):
         name = '%sAuditLogEntry'%model._meta.object_name
         #print attrs  #it seems there is not m2m fields either!
         #print models.Model
-        print name, attrs
-        #print type(name, (models.Model,), attrs)
         
         return type(name, (models.Model,), attrs)
         
