@@ -11,37 +11,83 @@ from audit_log.models.fields import LastUserField
 
 class LogEntryObjectDescriptor(object):
     def __init__(self, model):
-        #model._meta.local_many_to_many = []
-        '''
-        for field in model._meta.fields:# + model._meta.many_to_many:
-            print field 
-            #when these m2m field gets in here, it's already TextField.
+
+        #model_copy = copy.copy(model)
+        model_copy = model
+
+        fields = {'__module__' : model_copy.__module__}
+
+        for field in model_copy._meta.fields + model_copy._meta.many_to_many:
+            #when these m2m field gets in here, it's already TextField. #NONONO!
+
             if isinstance(field, models.related.ManyToManyField):
-                field.__class__ = models.TextField
-            #    #mockup for m2m
+                field2 = models.TextField(blank=True)
+                field2.__class__ = models.TextField
+                field2.attname = field.attname
+                field2.name = field.name
+                #model_copy._meta.local_many_to_many.remove(field)
+                #print dir(field2)
+            else:
+                field2 = copy.copy(field)
+
+            if field2.attname != field2.name:
+                fields[field2.name] = field2
+                #print field2.attname, field2.name
+            else:
+                fields[field2.attname] = field2
+            #print field2.db_column
+
+        print fields
+        attrs = fields
+        attrs.update(Meta = type('Meta', (), {
+            'app_label' : model._meta.app_label,
+            }
+            )
+        )
+                
+        #name = model._meta.object_name
+        name = '%sAuditLogEntry'%model._meta.object_name
+
+        model_neo = type(name, (models.Model,), attrs)
+
+        for field in model_neo._meta.fields:
+            #print field
             pass
-        
+
+        print model_neo
+        self.model = model_neo
+
+
+        ''' 
         for field in model._meta.many_to_many:
             if isinstance(field, models.TextField):
                 field.__class__ = models.related.ManyToManyField
         
         '''
 
-        self.model = model
+        #self.model = model
 
     def __get__(self, instance, owner):
+
         #values = (getattr(instance, f.attname) for f in self.model._meta.fields)
+        values = {}
+        values_m2m = {}
         #print [f.attname for f in self.model._meta.fields] #DEBUG: it seems we don't have any m2m fields here.
 
         for f in self.model._meta.fields + self.model._meta.many_to_many:
-            print "get_field_value in LogEntryObjectDescriptor:", f
+            #print "get_field_value in LogEntryObjectDescriptor:", f
             if not isinstance(f, models.related.ManyToManyField):
-                values.append(getattr(instance, f.attname))
+                values[f.attname] = getattr(instance, f.attname)
             else:
                 #M2M
-                values.append(f.attname) #a mockup
+                values_m2m[f.attname] = str(getattr(instance, f.attname))
 
-        return self.model(*values)
+        print dir(self.model)
+        print values
+        print dir(self.model.monitor)
+
+        return self.model(**values)
+
 
 class AuditLogManager(models.Manager):
     def __init__(self, model, instance = None):
