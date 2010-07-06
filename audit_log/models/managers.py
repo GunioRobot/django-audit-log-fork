@@ -11,7 +11,7 @@ from audit_log.models.fields import LastUserField
 
 class LogEntryObjectDescriptor(object):
     def __init__(self, model):
-        model._meta.local_many_to_many = []
+        #model._meta.local_many_to_many = []
         '''
         for field in model._meta.fields:# + model._meta.many_to_many:
             print field 
